@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "default": "2026-08-17",
+  "sets": {
+    "2026-08-17": {
+      "default_robot": "bennett",
+      "control": {
+        "decimation": 8
+      },
+      "action": {
+        "width": 12,
+        "scale": 0.25,
+        "clip": 10.0
+      },
+      "observation": {
+        "history": {
+          "length": 25,
+          "order": "oldest_to_newest"
+        },
+        "motor_order": [
+          "motor_hip_FL",
+          "motor_hip_FR",
+          "motor_hip_RL",
+          "motor_hip_RR",
+          "motor_thigh_FL",
+          "motor_thigh_FR",
+          "motor_thigh_RL",
+          "motor_thigh_RR",
+          "motor_calf_FL",
+          "motor_calf_FR",
+          "motor_calf_RL",
+          "motor_calf_RR"
+        ],
+        "gravity_direction": [0.0, 0.0, -1.0],
+        "clock": {
+          "frequency_hz": 2.5,
+          "phase_offsets": [1.0, 0.0, 0.0, 1.0],
+          "command_deadband": [0.1, 0.1, 0.05],
+          "standstill_values": [0.5, 0.5, 0.5, 0.5],
+          "advance_before_observation": true
+        },
+        "fields": [
+          {"name": "gait_clock", "width": 4, "scale": 1.0},
+          {"name": "projected_gravity", "width": 3, "scale": 1.0},
+          {"name": "base_angular_velocity", "width": 3, "scale": 2.0},
+          {"name": "velocity_command", "width": 3, "scale": 2.0},
+          {"name": "motor_position_error", "width": 12, "scale": 1.0},
+          {"name": "motor_velocity", "width": 12, "scale": 0.05},
+          {"name": "current_action", "width": 12, "scale": 1.0},
+          {"name": "previous_action", "width": 12, "scale": 1.0}
+        ]
+      },
+      "robots": {
+        "bennett": {
+          "model": "bennett.onnx",
+          "sha256": "110cd8cb3def27cd939e90e1a3fddb5c7c3de0e2a889e9aadf45967f51742b0f",
+          "input": {"name": "obs", "dtype": "tensor(float)", "batch": 1, "width": 1525},
+          "output": {"name": "actions", "dtype": "tensor(float)", "batch": 1, "width": 12}
+        },
+        "planar": {
+          "model": "planar.onnx",
+          "sha256": "72ea303fed8865ccc987ff7e2b806efd97266a0f64a4bbad8a77bf40effabb47",
+          "input": {"name": "obs", "dtype": "tensor(float)", "batch": 1, "width": 1525},
+          "output": {"name": "actions", "dtype": "tensor(float)", "batch": 1, "width": 12}
+        },
+        "spherical": {
+          "model": "spherical.onnx",
+          "sha256": "a599708585e51cbc0515308953778e18fb11716feeb698a22a221d4a46f67545",
+          "input": {"name": "obs", "dtype": "tensor(float)", "batch": 1, "width": 1525},
+          "output": {"name": "actions", "dtype": "tensor(float)", "batch": 1, "width": 12}
+        }
+      }
+    }
+  }
+}

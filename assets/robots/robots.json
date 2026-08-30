@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "default": "bennett",
+  "reset_base_height": 0.34,
+  "files": {
+    "actuator": "actuators/robstride_250hz_history_len_6.pt",
+    "actuator_sha256": "09b811c3f04520d2452bcdb2b786c5a7fc994555a4c15f10d94b7dfe0d3eaf19"
+  },
+  "model": {
+    "body_count": 25,
+    "joint_count": 29,
+    "articulation_count": 1,
+    "base_body": "MainBody",
+    "motor_joints": [
+      "motor_hip_FL",
+      "motor_thigh_FL",
+      "motor_calf_FL",
+      "motor_hip_FR",
+      "motor_thigh_FR",
+      "motor_calf_FR",
+      "motor_hip_RL",
+      "motor_thigh_RL",
+      "motor_calf_RL",
+      "motor_hip_RR",
+      "motor_thigh_RR",
+      "motor_calf_RR"
+    ],
+    "foot_bodies": ["FootTip_FL", "FootTip_FR", "FootTip_RL", "FootTip_RR"],
+    "loop_joints": ["end_joint_FL", "end_joint_FR", "end_joint_RL", "end_joint_RR"],
+    "dynamic_friction": 0.6,
+    "ground_friction": 1.0,
+    "restitution": 0.0
+  },
+  "physics": {
+    "dt": 0.0025,
+    "gravity": -9.81
+  },
+  "solver": {
+    "sparse_jacobian": true,
+    "sparse_dynamics": true,
+    "integrator": "moreau",
+    "constraint_alpha": 0.1,
+    "constraint_beta": 0.011,
+    "constraint_gamma": 0.015,
+    "linear_solver": "CR",
+    "linear_solver_max_iterations": 9,
+    "preconditioning": false,
+    "bilateral_solver": "LLTBRCM",
+    "parallel_factorization": true,
+    "tolerance": 0.0001,
+    "regularization": 0.00001,
+    "alternating_iterations": 4,
+    "inequality_sweeps": 3,
+    "bilateral_solve_interval": 1,
+    "warmstart_mode": "containers",
+    "contact_warmstart_method": "key_and_position_with_net_force_backup",
+    "friction_mix_mode": "multiply",
+    "restitution_mix_mode": "multiply"
+  },
+  "actuator": {
+    "effort_limit": 17.0,
+    "velocity_limit": 22.0,
+    "saturation_effort": 17.0,
+    "simulation_velocity_limit": 22.0,
+    "armature": 0.0042,
+    "passive_damping": 0.008
+  },
+  "robots": {
+    "bennett": {
+      "label": "Bennett",
+      "usd": "robots/bennett.usdc",
+      "usd_sha256": "e26fcfd91c09fa2c6e2dbe5bff2fa8e1bca042d623d2f71d988116e9089008e3",
+      "home_position": [-0.67, 1.91, -0.74, 0.67, -1.91, 0.74, 0.67, -1.91, 0.74, -0.67, 1.91, -0.74],
+      "enable_self_collisions": false
+    },
+    "planar": {
+      "label": "Planar",
+      "usd": "robots/planar.usdc",
+      "usd_sha256": "e89163c00bcce22d352d6e0e8f6cf15a18ed9188b1666836e5b409f81e390e55",
+      "home_position": [-1.3788101090755203, 2.3911010752322315, -1.5184364492350666, 1.3788101090755203, -2.3911010752322315, 1.5184364492350666, 1.3788101090755203, -2.3911010752322315, 1.5184364492350666, -1.3788101090755203, 2.3911010752322315, -1.5184364492350666],
+      "enable_self_collisions": true
+    },
+    "spherical": {
+      "label": "Spherical",
+      "usd": "robots/spherical.usdc",
+      "usd_sha256": "420736d053a19e6d7777ce0cdc2fb20cc9e6af0b7b2d92ee4f0b4ecb87758d39",
+      "home_position": [-0.9424777960769379, 2.426007660272118, -1.5707963267948966, 0.9424777960769379, -2.426007660272118, 1.5707963267948966, 0.9424777960769379, -2.426007660272118, 1.5707963267948966, -0.9424777960769379, 2.426007660272118, -1.5707963267948966],
+      "enable_self_collisions": false
+    }
+  }
+}
