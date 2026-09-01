@@ -185,6 +185,12 @@ class KaminoSimulation:
         self.solver.step(state_in, state_out, self.control, self.contacts, self.cfg.physics.dt)
         self.solver.update_contacts(self.contacts, state_out)
 
+    def simulate_once(self) -> None:
+        """Advance one physics step for a surrounding device-resident controller."""
+        self._simulate_once(self.state_in, self.state_out)
+        self.state_in, self.state_out = self.state_out, self.state_in
+        self._active_state_index = 1 - self._active_state_index
+
     def _capture_cuda_graphs(self, reset_cfg: newton.solvers.SolverKamino.ResetConfig) -> None:
         """Capture one public-API Warp graph for each state-buffer direction."""
         state_0, state_1 = self._states
@@ -271,7 +277,7 @@ class KaminoSimulation:
         child_anchor = child_pose[..., :3] + _quaternion_rotate_xyzw(child_pose[..., 3:], child_frame[..., :3])
         return torch.linalg.vector_norm(parent_anchor - child_anchor, dim=-1)
 
-    def view(self) -> RobotState:
+    def view(self, *, last_motor_torque: torch.Tensor | None = None) -> RobotState:
         """Gather a device-resident view of the current state."""
         tensors = self._current_tensors()
         return RobotState(
@@ -282,7 +288,7 @@ class KaminoSimulation:
             foot_pose=tensors.body_pose[self.layout.foot_body_indices],
             foot_velocity=tensors.body_velocity[self.layout.foot_body_indices],
             loop_position_error=self._loop_position_error(tensors.body_pose),
-            applied_motor_torque=self.last_motor_torque,
+            applied_motor_torque=self.last_motor_torque if last_motor_torque is None else last_motor_torque,
         )
 
     def reset(self, mask: torch.Tensor) -> torch.Tensor:

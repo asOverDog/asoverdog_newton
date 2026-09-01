@@ -33,6 +33,38 @@ def test_play_selects_a_dated_policy_set() -> None:
     assert parsed.robot == "spherical"
 
 
+def test_viewer_runs_at_policy_frequency() -> None:
+    assert play_module._VIEWER_RENDER_HZ == 50
+
+
+def test_viewer_deadline_waits_without_accumulating_drift() -> None:
+    sleeps: list[float] = []
+
+    next_deadline = play_module._wait_for_next_frame(
+        deadline=10.02,
+        period=0.02,
+        clock=lambda: 10.005,
+        sleeper=sleeps.append,
+    )
+
+    assert sleeps == pytest.approx([0.015])
+    assert next_deadline == pytest.approx(10.04)
+
+
+def test_viewer_deadline_drops_missed_periods() -> None:
+    sleeps: list[float] = []
+
+    next_deadline = play_module._wait_for_next_frame(
+        deadline=10.02,
+        period=0.02,
+        clock=lambda: 10.055,
+        sleeper=sleeps.append,
+    )
+
+    assert sleeps == []
+    assert next_deadline == pytest.approx(10.075)
+
+
 def test_headless_requires_a_positive_step_count() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--headless"])
@@ -90,10 +122,10 @@ class _RecordingController:
     def __init__(self, view: RobotState) -> None:
         self.view = view
         self.current_action = torch.zeros(1, 12)
-        self.commands: list[torch.Tensor] = []
+        self.commands: list[tuple[float, float, float]] = []
 
-    def step(self, command: torch.Tensor) -> RobotState:
-        self.commands.append(command.clone())
+    def step(self, command: tuple[float, float, float]) -> RobotState:
+        self.commands.append(command)
         return self.view
 
 
@@ -122,4 +154,4 @@ def test_headless_loop_applies_heading_hold_to_policy_command() -> None:
         view,
     )
 
-    assert torch.allclose(controller.commands[0], torch.tensor([[0.5, 0.0, -0.25]]))
+    assert controller.commands[0] == pytest.approx((0.5, 0.0, -0.25))

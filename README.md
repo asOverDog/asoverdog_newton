@@ -69,7 +69,9 @@ the same control interface and share one learned actuator model.
 At 50 Hz, each gait policy receives `obs` with 25 frames of 61 features (`1 × 1525`) and produces
 12 normalized motor-position offsets through `actions` (`1 × 12`). The shared actuator model uses
 joint position-error and velocity history to convert those targets into motor torques at each
-simulation step.
+simulation step. On CUDA, the policy, actuator, and eight 400 Hz Kamino physics steps remain on the
+device and replay as one policy-period CUDA Graph. Viewer updates are paced to the same 50 Hz rate;
+headless runs remain unthrottled.
 
 Robot assets and simulation parameters are defined in
 [`assets/robots/robots.json`](assets/robots/robots.json). Policy paths, observation fields, tensor

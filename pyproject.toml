@@ -7,8 +7,8 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
   "newton[examples]==1.5.1",
   "numpy>=1.26",
-  "onnxruntime>=1.20,<2",
   "torch>=2.5",
+  "warp-nn[onnx]>=0.3,<0.4",
 ]
 
 [dependency-groups]

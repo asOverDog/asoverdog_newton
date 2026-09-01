@@ -1,7 +1,10 @@
 import pytest
 import torch
 
+from control.actuator import Actuator
 from control.config import default_asset_root, discover_robot_profiles
+from control.controller import Controller
+from control.policy import OnnxPolicy
 from sim.simulation import KaminoSimulation
 
 PROFILES, _ = discover_robot_profiles(default_asset_root())
@@ -20,11 +23,13 @@ def test_cpu_runtime_resets_and_steps_every_profile() -> None:
 
 @pytest.mark.cuda
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
-def test_cuda_graph_steps_every_profile() -> None:
+def test_policy_period_cuda_graph_steps_every_profile() -> None:
     for profile in PROFILES.values():
-        simulation = KaminoSimulation(profile, 1, "cuda:0", load_visual_shapes=False, use_cuda_graph=True)
+        simulation = KaminoSimulation(profile, 1, "cuda:0", load_visual_shapes=False, use_cuda_graph=False)
+        policy = OnnxPolicy(profile.policy.path, profile, device="cuda:0")
+        controller = Controller(simulation, profile, policy, Actuator(profile, "cuda:0"), use_cuda_graph=True)
 
-        assert simulation.cuda_graph_enabled
-        view = simulation.step_motor_torques(torch.zeros(1, profile.action_dim, device="cuda:0"))
+        assert controller.cuda_graph_enabled
+        view = controller.step((0.0, 0.0, 0.0))
         assert view.base_pose.device.type == "cuda"
         assert torch.isfinite(view.base_pose).all()

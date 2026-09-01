@@ -6,10 +6,10 @@ import argparse
 import json
 import math
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import Protocol
 
 import torch
@@ -22,7 +22,7 @@ from control.policy import OnnxPolicy, ZeroActionPolicy
 from control.state import RobotState
 from sim.simulation import KaminoSimulation
 
-_VIEWER_RENDER_HZ = 30
+_VIEWER_RENDER_HZ = 50
 _HEADING_GAIN = 1.0
 _MAX_POLICY_YAW_RATE = 2.0
 
@@ -189,10 +189,6 @@ class _Metrics:
         )
 
 
-def _command(values: tuple[float, float, float], device: torch.device) -> torch.Tensor:
-    return torch.tensor([values], dtype=torch.float32, device=device)
-
-
 def _base_yaw(view: RobotState) -> float:
     x, y, z, w = (float(value.item()) for value in view.base_pose[0, 3:7])
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
@@ -212,11 +208,26 @@ def _run_headless(
         with torch.inference_mode():
             for _ in range(args.steps):
                 values = heading.command(desired, current_yaw=_base_yaw(view))
-                command = _command(values, controller.device)
-                view = controller.step(command)
+                view = controller.step(values)
                 metrics.update(view, controller.current_action)
     finally:
         metrics.finish()
+
+
+def _wait_for_next_frame(
+    deadline: float,
+    period: float,
+    *,
+    clock: Callable[[], float] = perf_counter,
+    sleeper: Callable[[float], None] = sleep,
+) -> float:
+    """Wait for a render deadline and return the following one."""
+    now = clock()
+    remaining = deadline - now
+    if remaining > 0.0:
+        sleeper(remaining)
+        return deadline + period
+    return now + period
 
 
 def _run_viewer(
@@ -232,8 +243,10 @@ def _run_viewer(
     view = initial_view
     reset_was_down = False
     policy_dt = controller.cfg.physics.policy_dt
-    policy_hz = round(1.0 / policy_dt)
-    render_phase = policy_hz - _VIEWER_RENDER_HZ
+    render_period = 1.0 / _VIEWER_RENDER_HZ
+    if not math.isclose(policy_dt, render_period):
+        raise ValueError("viewer render frequency must match the policy frequency")
+    render_deadline = perf_counter()
     metrics.start()
     try:
         with torch.inference_mode():
@@ -248,15 +261,13 @@ def _run_viewer(
                 keys = keyboard_command(viewer)
                 desired = keys if keys != (0.0, 0.0, 0.0) else fallback
                 values = heading.command(desired, current_yaw=_base_yaw(view))
-                view = controller.step(_command(values, controller.device))
+                view = controller.step(values)
                 metrics.update(view, controller.current_action)
-                render_phase += _VIEWER_RENDER_HZ
-                if render_phase >= policy_hz:
-                    viewer.begin_frame(metrics.completed_steps * policy_dt)
-                    viewer.log_state(controller.simulation.current_state)
-                    viewer.end_frame()
-                    metrics.rendered_frames += 1
-                    render_phase -= policy_hz
+                render_deadline = _wait_for_next_frame(render_deadline, render_period)
+                viewer.begin_frame(metrics.completed_steps * policy_dt)
+                viewer.log_state(controller.simulation.current_state)
+                viewer.end_frame()
+                metrics.rendered_frames += 1
     finally:
         metrics.finish()
 
@@ -266,6 +277,7 @@ def _result(
     policy: OnnxPolicy | ZeroActionPolicy,
     actuator: Actuator,
     simulation: KaminoSimulation,
+    controller: Controller,
 ) -> dict[str, object]:
     if metrics.final_view is None:
         height = displacement = 0.0
@@ -290,7 +302,7 @@ def _result(
         "policy_hz": policy_hz,
         "physics_fps": policy_hz * simulation.cfg.physics.policy_decimation,
         "real_time_factor": policy_hz * simulation.cfg.physics.policy_dt,
-        "cuda_graph_enabled": simulation.cuda_graph_enabled,
+        "cuda_graph_enabled": controller.cuda_graph_enabled,
         "robot": simulation.robot_name,
         "controller": policy.mode,
     }
@@ -308,14 +320,13 @@ def play(args: PlayArgs) -> dict[str, object]:
         profiles,
         asset_root=args.asset_root,
     )
-    device = torch.device(args.device)
     policy_path = profile.policy.path if args.onnx is None else args.onnx
     policy = (
-        ZeroActionPolicy(device, profile.observation.input_width, profile.action_dim)
+        ZeroActionPolicy(args.device, profile.observation.input_width, profile.action_dim)
         if args.zero_action
-        else OnnxPolicy(policy_path, profile)
+        else OnnxPolicy(policy_path, profile, device=args.device)
     )
-    actuator = Actuator(profile, device)
+    actuator = Actuator(profile, args.device)
     simulation: KaminoSimulation | None = None
     viewer: ViewerGL | None = None
     try:
@@ -324,11 +335,11 @@ def play(args: PlayArgs) -> dict[str, object]:
             1,
             args.device,
             load_visual_shapes=not args.headless,
-            use_cuda_graph=True,
+            use_cuda_graph=False,
         )
-        if simulation.device.type == "cuda" and not simulation.cuda_graph_enabled:
-            raise RuntimeError("CUDA graph capture is required for Kamino control")
-        controller = Controller(simulation, profile, policy, actuator)
+        controller = Controller(simulation, profile, policy, actuator, use_cuda_graph=True)
+        if simulation.device.type == "cuda" and not controller.cuda_graph_enabled:
+            raise RuntimeError("policy-period CUDA graph capture is required for Kamino control")
         initial = controller.reset()
         heading = HeadingHold(profile.config.physics.policy_dt)
         heading.reset(_base_yaw(initial))
@@ -338,7 +349,7 @@ def play(args: PlayArgs) -> dict[str, object]:
         else:
             viewer = ViewerGL(vsync=False)
             _run_viewer(controller, args, viewer, metrics, heading, initial)
-        return _result(metrics, policy, actuator, simulation)
+        return _result(metrics, policy, actuator, simulation, controller)
     finally:
         if viewer is not None:
             viewer.close()

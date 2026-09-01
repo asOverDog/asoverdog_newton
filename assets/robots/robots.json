@@ -3,8 +3,8 @@
   "default": "bennett",
   "reset_base_height": 0.34,
   "files": {
-    "actuator": "actuators/robstride_250hz_history_len_6.pt",
-    "actuator_sha256": "09b811c3f04520d2452bcdb2b786c5a7fc994555a4c15f10d94b7dfe0d3eaf19"
+    "actuator": "actuators/robstride_250hz_history_len_6.npz",
+    "actuator_sha256": "ca44f2aa1a0cac52552027b352a89991bfdb37242f1d641f9aca742af0857d37"
   },
   "model": {
     "body_count": 25,
